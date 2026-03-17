@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CreditSight · AI Credit Underwriting</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { font-family: 'Inter', -apple-system, sans-serif; }
+    body { background: #f5f6fa; }
+
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+
+    /* ─── Animations ─── */
+    @keyframes fadeUp   { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+    @keyframes spin     { to { transform:rotate(360deg); } }
+    @keyframes blink    { 0%,100%{ opacity:1; } 50%{ opacity:0.25; } }
+    @keyframes pulse-banner { 0%,100%{ box-shadow:0 0 0 0 rgba(99,102,241,.15); } 50%{ box-shadow:0 0 0 8px rgba(99,102,241,0); } }
+    @keyframes shimmer  { from{background-position:-200% 0} to{background-position:200% 0} }
+    .fade-up   { animation: fadeUp 0.28s cubic-bezier(.16,1,.3,1); }
+    .fade-in   { animation: fadeIn 0.2s ease; }
+    .spinner   { animation: spin 0.7s linear infinite; }
+    .rec-pulse { animation: pulse-banner 2.5s ease-in-out 3; }
+    .typing-dot{ width:5px; height:5px; border-radius:50%; background:#a5b4fc; animation:blink 1.2s ease-in-out infinite; }
+    .typing-dot:nth-child(2){ animation-delay:.22s; }
+    .typing-dot:nth-child(3){ animation-delay:.44s; }
+    .foir-bar  { transition: width 1.3s cubic-bezier(.4,0,.2,1); }
+
+    /* ─── Nav tabs ─── */
+    .tab-btn { padding:8px 14px; font-size:12px; font-weight:500; color:#6b7280; border-bottom:2px solid transparent; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; transition:color .15s, border-color .15s; }
+    .tab-btn.active { color:#6366f1; border-bottom-color:#6366f1; }
+    .tab-btn:hover:not(.active) { color:#374151; }
+
+    /* ─── Table row ─── */
+    .case-row { transition:background .12s; cursor:pointer; }
+    .case-row:hover { background:#f0f1ff; }
+
+    /* ─── Risk card hover ─── */
+    .risk-card { transition:box-shadow .15s, transform .15s; }
+    .risk-card:hover { box-shadow:0 4px 20px rgba(0,0,0,.07); transform:translateY(-1px); }
+
+    /* ─── Doc item ─── */
+    .doc-item { border-radius:8px; transition:background .1s; }
+    .doc-item:hover { background:#f8f9ff; }
+
+    /* ─── Chips ─── */
+    .chip { font-size:11px; background:#f0f0fe; color:#5b5fcf; border:1px solid #e0e0fd; border-radius:99px; padding:4px 10px; cursor:pointer; transition:background .12s, transform .1s; }
+    .chip:hover { background:#e0e0fd; transform:translateY(-1px); }
+
+    /* ─── Source / Policy pills ─── */
+    .source-pill { font-size:10px; background:#eef2ff; color:#4f46e5; border:1px solid #c7d2fe; border-radius:99px; padding:2px 8px; display:inline-flex; align-items:center; gap:3px; }
+    .policy-pill { font-size:10px; background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; border-radius:99px; padding:2px 8px; display:inline-flex; align-items:center; gap:3px; }
+
+    /* ─── Stat card ─── */
+    .stat-card { background:white; border:1px solid #e5e7eb; border-radius:14px; padding:16px 18px; transition:box-shadow .15s; }
+    .stat-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.06); }
+
+    /* ─── Positive glow ─── */
+    .glow-green { box-shadow:0 0 0 1px #bbf7d0; }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-sm" style="background:#f5f6fa">
+
+<!-- ══ HEADER ══ -->
+<header class="bg-white border-b border-gray-100 flex items-center justify-between px-6 h-[52px] flex-shrink-0 z-20" style="box-shadow:0 1px 3px rgba(0,0,0,.04)">
+  <div class="flex items-center gap-3">
+    <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+      <svg width="13" height="13" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    </div>
+    <span class="font-bold text-gray-900 tracking-tight" style="font-size:15px">CreditSight</span>
+    <div class="h-4 w-px bg-gray-200 mx-1"></div>
+    <span class="text-gray-400 text-xs font-medium">AI Credit Underwriting</span>
+  </div>
+  <div class="flex items-center gap-4 text-xs text-gray-400">
+    <div class="flex items-center gap-1.5">
+      <div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+      <span class="text-gray-500 font-medium">Live</span>
+    </div>
+    <span id="headerDate" class="text-gray-400">14 Aug 2024</span>
+    <div class="flex items-center gap-2 ml-1">
+      <div class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">AR</div>
+      <div class="leading-tight">
+        <div class="text-xs font-semibold text-gray-700">Arun Ramesh</div>
+        <div class="text-[10px] text-gray-400">Junior Underwriter</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════════ SCREEN 1 — DASHBOARD ══════════════════════ -->
+<div id="screen-dashboard" class="flex-1 overflow-y-auto">
+  <div class="px-8 pt-6 pb-4 flex items-end justify-between">
+    <div>
+      <h1 class="text-[22px] font-bold text-gray-900 tracking-tight">Loan Review Queue</h1>
+      <p class="text-sm text-gray-400 mt-0.5">Personal Loans · Pending underwriter review · 14 Aug 2024</p>
+    </div>
+    <div class="flex items-center gap-2 text-xs text-gray-400">
+      <svg width="13" height="13" fill="none" stroke="#9ca3af" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Filter &amp; search</span>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="px-8 mb-5 grid grid-cols-5 gap-3" id="statsRow"></div>
+
+  <!-- Table -->
+  <div class="px-8 pb-10">
+    <div class="bg-white rounded-2xl overflow-hidden" style="border:1px solid #e5e7eb; box-shadow:0 1px 4px rgba(0,0,0,.04)">
+      <!-- Table head -->
+      <div class="grid gap-4 px-6 py-3 border-b border-gray-100" style="grid-template-columns:2.6fr 1.8fr .9fr .9fr 2fr .8fr 1fr .8fr; background:#fafafa;">
+        <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Applicant</div>
+        <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Loan Details</div>
+        <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest text-center">CIBIL</div>
+        <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest text-center">FOIR</div>
+        <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Key Issue</div>
+        <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest text-center">Risk</div>
+        <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest text-center">AI Rec.</div>
+        <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest text-right">Action</div>
+      </div>
+      <div id="caseTable"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ SCREEN 2 — DETAIL ══════════════════════ -->
+<div id="screen-detail" class="hidden flex-1 flex flex-col overflow-hidden relative">
+
+  <!-- Sub-header -->
+  <div class="bg-white border-b border-gray-100 px-5 py-2.5 flex items-center gap-3 flex-shrink-0 z-10" style="box-shadow:0 1px 3px rgba(0,0,0,.03)">
+    <button onclick="showDashboard()" class="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to Queue
+    </button>
+    <div class="h-4 w-px bg-gray-200"></div>
+    <div id="subHeader" class="flex items-center gap-2.5 text-xs text-gray-500 flex-1 min-w-0"></div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div id="loadingOverlay" class="absolute inset-0 bg-white z-30 hidden flex-col items-center justify-center" style="top:44px">
+    <div class="w-10 h-10 rounded-full spinner flex-shrink-0 mb-5" style="border:2.5px solid #e0e0fd; border-top-color:#6366f1;"></div>
+    <div class="font-semibold text-gray-800 text-sm mb-1.5">Analyzing case documents…</div>
+    <div class="text-gray-400 text-xs" id="loadingStep">Cross-referencing documents against underwriting policy</div>
+    <div class="flex gap-1.5 mt-5">
+      <div class="w-1.5 h-1.5 rounded-full bg-indigo-300"></div>
+      <div class="w-1.5 h-1.5 rounded-full bg-indigo-200"></div>
+      <div class="w-1.5 h-1.5 rounded-full bg-indigo-100"></div>
+    </div>
+  </div>
+
+  <!-- 3-column layout -->
+  <div id="detailBody" class="flex flex-1 overflow-hidden hidden">
+
+    <!-- LEFT SIDEBAR -->
+    <aside class="w-[220px] bg-white border-r border-gray-100 flex flex-col flex-shrink-0 overflow-hidden text-xs" style="box-shadow:1px 0 0 #f0f0f0">
+      <div id="sidebarContent" class="flex-1 overflow-y-auto"></div>
+      <div class="p-3.5 flex-shrink-0" style="background:#f8f8ff; border-top:1px solid #ece8ff;">
+        <div class="flex items-center gap-2">
+          <div class="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+            <svg width="9" height="9" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+          </div>
+          <div>
+            <div class="font-semibold text-indigo-700 text-[10px]">UW Policy v2.4</div>
+            <div class="text-indigo-400 text-[9px] mt-0.5">All findings cite uploaded docs</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER -->
+    <main class="flex-1 flex flex-col overflow-hidden min-w-0" style="background:#f5f6fa">
+      <div id="recBanner" class="flex-shrink-0"></div>
+      <!-- Tabs -->
+      <div class="bg-white border-b border-gray-100 flex flex-shrink-0 overflow-x-auto px-2">
+        <button class="tab-btn active" id="tabBtn-overview" onclick="switchTab('overview')">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+          Overview
+        </button>
+        <button class="tab-btn" id="tabBtn-risks" onclick="switchTab('risks')">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          Risk Signals
+          <span id="riskBadge" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600"></span>
+        </button>
+        <button class="tab-btn" id="tabBtn-policy" onclick="switchTab('policy')">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+          Policy Check
+        </button>
+        <button class="tab-btn" id="tabBtn-decision" onclick="switchTab('decision')">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Decision
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto">
+        <div id="tab-overview"  class="p-5 space-y-4"></div>
+        <div id="tab-risks"     class="p-5 space-y-3 hidden"></div>
+        <div id="tab-policy"    class="p-5 hidden"></div>
+        <div id="tab-decision"  class="p-5 space-y-4 hidden"></div>
+      </div>
+    </main>
+
+    <!-- RIGHT: CHAT -->
+    <aside class="w-[280px] bg-white border-l border-gray-100 flex flex-col flex-shrink-0">
+      <!-- Chat header -->
+      <div class="p-4 border-b border-gray-100 flex items-center gap-2.5 flex-shrink-0">
+        <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+          <svg width="12" height="12" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="flex-1">
+          <div class="font-semibold text-gray-900 text-xs">Ask CreditSight</div>
+          <div class="text-[10px] text-gray-400">Grounded in case documents</div>
+        </div>
+        <div class="flex items-center gap-1">
+          <div class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
+          <span class="text-[10px] text-gray-400 font-medium">Active</span>
+        </div>
+      </div>
+      <div id="chatMessages" class="flex-1 overflow-y-auto px-3.5 py-3 space-y-3"></div>
+      <div class="px-3.5 pb-2 flex flex-wrap gap-1.5 flex-shrink-0" id="quickChips"></div>
+      <div class="p-3.5 border-t border-gray-100 flex-shrink-0">
+        <div class="flex gap-2">
+          <input id="chatInput" type="text" placeholder="Ask about this case…"
+            class="flex-1 text-xs border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 placeholder-gray-300 bg-gray-50 transition-all"
+            onkeydown="if(event.key==='Enter') sendChat()" />
+          <button onclick="sendChat()" class="text-white px-3 py-2 rounded-xl flex-shrink-0 transition-opacity hover:opacity-80" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+            <svg width="12" height="12" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="hidden fixed bottom-5 right-5 text-white text-xs px-4 py-2.5 rounded-xl z-50 flex items-center gap-2 fade-in" style="background:#1e1b4b; box-shadow:0 8px 24px rgba(99,102,241,.3)">
+  <svg width="12" height="12" fill="none" stroke="#a5b4fc" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  CASE DATA
+// ══════════════════════════════════════════════════
+const cases = [
+  {
+    id: 1, initials:'RK', name:'Rajesh Kumar', age:34,
+    occupation:'Freelance Graphic Designer', employmentType:'Self-Employed · 3 yrs',
+    loanAmount:'₹10,00,000', tenure:'48 months', emi:'~₹26,000', purpose:'Business expansion & equipment',
+    customerType:'New Customer', received:'10:23 AM',
+    recommendation:'REVIEW', overallRisk:'HIGH',
+    keyIssue:'CIBIL 658 · Unverified income jump 57%',
+    cibil:658, cibilMin:700, cibilOk:false,
+    foir:'69%', foirNum:69, foirOk:false,
+    foirBreakdown:'Car EMI ₹12,000 + Proposed ₹26,000 = ₹38,000 on ₹55,000 declared income',
+    foirWorst:'On ITR income (₹35,000), FOIR = 108% — mathematically infeasible',
+    declaredIncome:'₹55,000/mo', itrIncome:'₹35,000/mo', bankCredits:'₹48,000/mo', existingEMI:'₹12,000/mo',
+    docs:[
+      {name:'Aadhaar Card',         status:'flag',   note:'Address mismatch — Chennai vs Bangalore'},
+      {name:'PAN Card',             status:'ok'},
+      {name:'Bank Statement (6m)',  status:'flag',   note:'Avg credits ₹48k, declared ₹55k'},
+      {name:'CIBIL Report',         status:'fail',   note:'Score 658 — below 700'},
+      {name:'ITR FY 2022–23',       status:'flag',   note:'₹35k/mo vs declared ₹55k'},
+      {name:'Loan Application',     status:'ok'},
+      {name:'UW Policy v2.4',       status:'policy'}
+    ],
+    flags:[
+      {severity:'HIGH',   title:'CIBIL below minimum threshold',       detail:'Score is 658 against the bank\'s hard cutoff of 700. Two 30-day late payments in April and August 2023. Senior underwriter exception sign-off is mandatory before any approval.',  source:'CIBIL Report',          policy:'Policy v2.4 · Sec 3.1'},
+      {severity:'HIGH',   title:'Unverified income jump — 57%',         detail:'ITR income ₹35,000/mo vs declared ₹55,000/mo — no CA certificate or supporting evidence provided. Bank credits average ₹48,000, further contradicting the declared figure.',         source:'ITR FY22-23 · Bank Stmt', policy:'Policy v2.4 · Sec 4.1'},
+      {severity:'MEDIUM', title:'Address discrepancy — KYC mismatch',   detail:'Aadhaar shows Chennai. Bank transactions originating from Bangalore for 3 months. Non-compliant with RBI KYC guidelines — updated address proof required.',                          source:'Aadhaar · Bank Stmt',     policy:'RBI KYC Master Dir. 2016'},
+      {severity:'MEDIUM', title:'Credit-hungry behaviour',               detail:'4 bureau enquiries in 6 months (policy limit: 3). Combined with 2 overdraft instances in 6 months — consistent with underlying cash flow pressure.',                                   source:'CIBIL Report',            policy:'Policy v2.4 · Sec 5.1'}
+    ],
+    positive:'Car loan EMI of ₹12,000/mo paid consistently throughout the loan period — positive repayment track record.',
+    summary:'CIBIL below threshold and unverified 57% income jump are hard policy breaches requiring senior review. Address discrepancy adds a KYC compliance concern. Mandatory escalation before any decision.',
+    policyRows:[
+      {criterion:'Min. CIBIL Score',          req:'≥ 700',      actual:'658 — 42 below',       source:'CIBIL Report',    status:'FAIL'},
+      {criterion:'FOIR',                       req:'≤ 50%',      actual:'69%',                  source:'App + ITR',       status:'FAIL'},
+      {criterion:'Bureau Enquiries (6m)',      req:'≤ 3',        actual:'4 enquiries',          source:'CIBIL Report',    status:'CONCERN'},
+      {criterion:'Late Payments (24m)',        req:'0',          actual:'2 × 30-day delays',    source:'CIBIL Report',    status:'CONCERN'},
+      {criterion:'Income Verification',        req:'Current ITR',actual:'57% gap vs declared',  source:'ITR FY22-23',     status:'CONCERN'},
+      {criterion:'KYC Address Match',          req:'Must match', actual:'Chennai vs Bangalore', source:'Aadhaar + Bank',  status:'CONCERN'},
+      {criterion:'Overdraft Usage (6m)',       req:'≤ 1',        actual:'2 instances',          source:'Bank Statement',  status:'CONCERN'},
+      {criterion:'Existing Loan Servicing',    req:'No defaults',actual:'Car loan consistent',  source:'Bank Statement',  status:'PASS'},
+      {criterion:'PAN / Aadhaar Linkage',      req:'Mandatory',  actual:'Verified',             source:'KYC Docs',        status:'PASS'},
+      {criterion:'New Customer — Enhanced KYC',req:'Applies',    actual:'Stricter norms applied',source:'Loan App',       status:'INFO'}
+    ],
+    chatChips:['FOIR concern?','Missing docs?','Exception process?','Positive signals?'],
+    chatWelcome:'I\'ve completed my analysis of Case <strong>CASE-2024-08-1142</strong> (Rajesh Kumar). I found <strong>4 risk signals</strong> — 2 HIGH, 2 MEDIUM. CIBIL breach and unverified income jump are the key concerns. Ask me anything about this case.'
+  },
+  {
+    id: 2, initials:'AS', name:'Anita Sharma', age:29,
+    occupation:'Marketing Manager, Infosys Ltd.', employmentType:'Salaried',
+    loanAmount:'₹5,00,000', tenure:'36 months', emi:'~₹15,500', purpose:'Home renovation',
+    customerType:'Existing Customer (4 yrs)', received:'09:45 AM',
+    recommendation:'APPROVE', overallRisk:'LOW',
+    keyIssue:'Clean profile · CIBIL 724 · FOIR 38%',
+    cibil:724, cibilMin:700, cibilOk:true,
+    foir:'38%', foirNum:38, foirOk:true,
+    foirBreakdown:'Existing EMI ₹12,000 + Proposed ₹15,500 = ₹27,500 on ₹72,000 income',
+    foirWorst:'Previously flagged personal loan (₹3,50,000) confirmed closed — verified via updated CIBIL pull dated 13 Aug 2024. FOIR recalculated to 38%.',
+    declaredIncome:'₹72,000/mo', itrIncome:'₹72,000/mo', bankCredits:'₹68,000/mo', existingEMI:'₹12,000/mo',
+    docs:[
+      {name:'Aadhaar Card',        status:'ok'},
+      {name:'PAN Card',            status:'ok'},
+      {name:'Salary Slips (3m)',   status:'ok',   note:'Regular credits — verified'},
+      {name:'Bank Statement (6m)', status:'ok',   note:'Consistent salary credits ₹68k avg'},
+      {name:'CIBIL Report',        status:'ok',   note:'Score 724 · Prior personal loan closed'},
+      {name:'Loan Application',    status:'ok'},
+      {name:'UW Policy v2.4',      status:'policy'}
+    ],
+    flags:[
+      {severity:'MEDIUM', title:'Minor salary credit delay — resolved',  detail:'Salary was delayed in 2 of 6 months by 3–5 days (Jan, Mar 2024). Verified as employer payroll batch timing — not a performance issue. No delays in the most recent 2 months.',  source:'Bank Statement',  policy:'Policy v2.4 · Sec 4.2'}
+    ],
+    positive:'CIBIL 724 well above minimum. FOIR 38% — comfortably within limit. 4-year existing banking relationship with strong transaction history. ITR and declared income match exactly. Prior personal loan now fully closed and reflected in updated CIBIL.',
+    summary:'Strong, low-risk application. All hard policy criteria are met. The previously flagged personal loan has been confirmed closed via an updated CIBIL pull. FOIR recalculates to 38% — well within policy. Minor historical salary delays are non-material and resolved. Recommend approval.',
+    policyRows:[
+      {criterion:'Min. CIBIL Score',         req:'≥ 700',      actual:'724 — above threshold',  source:'CIBIL Report',   status:'PASS'},
+      {criterion:'FOIR',                     req:'≤ 50%',      actual:'38% — well within limit', source:'App + Bank',     status:'PASS'},
+      {criterion:'Loan Disclosure',          req:'All declared',actual:'Prior loan now closed — confirmed', source:'CIBIL Report', status:'PASS'},
+      {criterion:'Salary Regularity',        req:'On time',    actual:'Minor delays (Jan, Mar) — resolved', source:'Bank Statement', status:'CONCERN'},
+      {criterion:'Late Payments (24m)',       req:'0',          actual:'0 — clean record',        source:'CIBIL Report',   status:'PASS'},
+      {criterion:'Income Verification',      req:'ITR matches',actual:'ITR = Declared ₹72k',     source:'ITR',            status:'PASS'},
+      {criterion:'KYC Address Match',        req:'Must match', actual:'Verified — matches',       source:'KYC Docs',       status:'PASS'},
+      {criterion:'PAN / Aadhaar Linkage',    req:'Mandatory',  actual:'Verified',                 source:'KYC Docs',       status:'PASS'}
+    ],
+    chatChips:['Why is this approved?','What was the prior flag?','FOIR breakdown?','Any conditions on approval?'],
+    chatWelcome:'Analysis complete for Case <strong>CASE-2024-08-1143</strong> (Anita Sharma). This is a <strong>clean, low-risk profile</strong>. All hard policy criteria are satisfied. The previously flagged personal loan has been verified as closed. Recommendation: <strong>Approve</strong>.'
+  },
+  {
+    id: 3, initials:'DP', name:'Deepak Patel', age:41,
+    occupation:'Restaurant Owner', employmentType:'Self-Employed · 8 yrs',
+    loanAmount:'₹15,00,000', tenure:'60 months', emi:'~₹32,000', purpose:'Second restaurant location',
+    customerType:'Existing Customer (6 yrs)', received:'11:05 AM',
+    recommendation:'REVIEW', overallRisk:'MEDIUM',
+    keyIssue:'Missing ITR FY22–23 · High cash inflows (AML)',
+    cibil:748, cibilMin:700, cibilOk:true,
+    foir:'52%', foirNum:52, foirOk:false,
+    foirBreakdown:'Existing EMI ₹18,000 + Proposed ₹32,000 = ₹50,000 on ₹95,000 declared income',
+    foirWorst:'On ITR-verified income (₹88,000), FOIR rises to 57% — both are policy breaches',
+    declaredIncome:'₹95,000/mo', itrIncome:'₹88,000/mo', bankCredits:'₹91,000/mo', existingEMI:'₹18,000/mo',
+    docs:[
+      {name:'Aadhaar Card',         status:'ok'},
+      {name:'PAN Card',             status:'ok'},
+      {name:'Bank Statement (6m)',  status:'flag',   note:'~45% of inflows are cash deposits'},
+      {name:'CIBIL Report',         status:'ok',     note:'Score 748 — above threshold'},
+      {name:'ITR FY 2021–22',       status:'ok'},
+      {name:'ITR FY 2022–23',       status:'fail',   note:'NOT FILED — gap year'},
+      {name:'ITR FY 2023–24',       status:'ok'},
+      {name:'Loan Application',     status:'ok'},
+      {name:'UW Policy v2.4',       status:'policy'}
+    ],
+    flags:[
+      {severity:'HIGH',   title:'ITR gap — FY 2022–23 not filed',    detail:'Filed for FY21-22 and FY23-24 but NOT FY22-23. A gap year may indicate business loss, dormancy, or compliance failure. Income for that year is entirely unverifiable.',       source:'ITR (3 years)',   policy:'Policy v2.4 · Sec 4.1'},
+      {severity:'MEDIUM', title:'High cash inflows — AML concern',    detail:'~45% of monthly bank inflows are cash deposits (avg ₹41,000/mo in cash). Per RBI AML guidelines and Policy Sec 6.2, source of cash must be documented with enhanced due diligence.', source:'Bank Statement',  policy:'RBI AML Guidelines'},
+      {severity:'MEDIUM', title:'FOIR marginally above threshold',    detail:'FOIR is 52% on declared ₹95,000 — 2% above policy. On ITR-verified ₹88,000, FOIR rises to 57%. Both represent a policy breach.',                                                   source:'App + ITR',       policy:'Policy v2.4 · Sec 4.3'}
+    ],
+    positive:'CIBIL 748 — well above minimum. 6-year banking relationship. Previous business loan fully paid and closed. Declared income and bank credits are very closely aligned.',
+    summary:'Strong credit profile overall, but the unexplained ITR gap for FY22-23 creates an unverifiable income year. High cash transactions require AML due diligence. FOIR marginally above limit on both income measures.',
+    policyRows:[
+      {criterion:'Min. CIBIL Score',        req:'≥ 700',    actual:'748 — clear',             source:'CIBIL Report',  status:'PASS'},
+      {criterion:'FOIR',                    req:'≤ 50%',    actual:'52% (57% on ITR income)', source:'App + ITR',     status:'FAIL'},
+      {criterion:'ITR Continuity',          req:'No gap yr',actual:'FY22-23 not filed',       source:'ITR Docs',      status:'FAIL'},
+      {criterion:'Cash Transactions',       req:'< 30% of inflows', actual:'~45% are cash', source:'Bank Statement', status:'CONCERN'},
+      {criterion:'AML Due Diligence',       req:'Enhanced DD if cash heavy', actual:'Not yet completed', source:'Policy Sec 6.2', status:'CONCERN'},
+      {criterion:'Late Payments (24m)',     req:'0',        actual:'0 — clean',               source:'CIBIL Report',  status:'PASS'},
+      {criterion:'KYC Address Match',       req:'Match',    actual:'Verified',                source:'KYC Docs',      status:'PASS'},
+      {criterion:'Existing Loan Servicing', req:'No defaults', actual:'Previous loan closed', source:'CIBIL Report',  status:'PASS'}
+    ],
+    chatChips:['Why is the ITR gap a concern?','Cash transaction risk?','FOIR breakdown?','What docs to request?'],
+    chatWelcome:'Analysis complete for Case <strong>CASE-2024-08-1144</strong> (Deepak Patel). Found <strong>3 risk signals</strong> — 1 HIGH, 2 MEDIUM. The ITR gap year is the primary concern, alongside high cash inflows requiring AML due diligence.'
+  },
+  {
+    id: 4, initials:'MI', name:'Meena Iyer', age:35,
+    occupation:'Software Engineer, TCS Ltd.', employmentType:'Salaried',
+    loanAmount:'₹8,00,000', tenure:'48 months', emi:'~₹20,500', purpose:'Medical emergency',
+    customerType:'Existing Customer (3 yrs)', received:'08:58 AM',
+    recommendation:'REFER', overallRisk:'MEDIUM',
+    keyIssue:'Signature mismatch · Overwritten DOB on application',
+    cibil:762, cibilMin:700, cibilOk:true,
+    foir:'34%', foirNum:34, foirOk:true,
+    foirBreakdown:'Existing EMI ₹17,000 + Proposed ₹20,500 = ₹37,500 on ₹1,10,000 declared income',
+    foirWorst:'FOIR is well within limits at 34%. No concern here.',
+    declaredIncome:'₹1,10,000/mo', itrIncome:'₹1,10,000/mo', bankCredits:'₹1,08,000/mo', existingEMI:'₹17,000/mo',
+    docs:[
+      {name:'Aadhaar Card',        status:'ok'},
+      {name:'PAN Card',            status:'ok'},
+      {name:'Salary Slips (3m)',   status:'ok'},
+      {name:'Bank Statement (6m)', status:'ok'},
+      {name:'CIBIL Report',        status:'ok',   note:'Score 762 — above threshold'},
+      {name:'Loan Application',    status:'fail', note:'Signature mismatch + overwritten DOB'},
+      {name:'UW Policy v2.4',      status:'policy'}
+    ],
+    flags:[
+      {severity:'HIGH',   title:'Signature mismatch — document integrity risk', detail:'Applicant\'s signature on the loan application does not match the Aadhaar card. DOB field has visible whitener correction with no counter-signature — violating Policy v2.4 Sec 2.1. Potential fraud indicator.',         source:'Loan App · Aadhaar', policy:'Policy v2.4 · Sec 2.1'},
+      {severity:'MEDIUM', title:'Uncountersigned correction on application',     detail:'The Date of Birth field shows a whitener-corrected overwrite. Policy requires all corrections to be counter-signed by the applicant with date and signature. No counter-signature present.',                              source:'Loan Application',   policy:'Policy v2.4 · Sec 2.1'}
+    ],
+    positive:'Excellent financial profile: CIBIL 762, FOIR only 34%, salary credited on time every single month, zero late payments in 36 months. Document integrity is the sole concern in an otherwise strong application.',
+    summary:'Financially one of the strongest cases in the queue. However, the signature mismatch and uncountersigned DOB correction are serious document integrity flags. Must be resolved via fresh application or notarized verification before this case can be processed.',
+    policyRows:[
+      {criterion:'Min. CIBIL Score',      req:'≥ 700',       actual:'762 — strong',           source:'CIBIL Report',   status:'PASS'},
+      {criterion:'FOIR',                  req:'≤ 50%',       actual:'34% — well within limit',source:'App + Salary',   status:'PASS'},
+      {criterion:'Document Integrity',    req:'No alterations', actual:'Signature mismatch + DOB overwrite', source:'Loan App', status:'FAIL'},
+      {criterion:'Correction Sign-off',   req:'Counter-signed', actual:'Not counter-signed',  source:'Loan App',       status:'FAIL'},
+      {criterion:'Late Payments (24m)',   req:'0',           actual:'0 — clean record',        source:'CIBIL Report',   status:'PASS'},
+      {criterion:'Salary Regularity',     req:'On time',     actual:'On time all 6 months',   source:'Bank Statement', status:'PASS'},
+      {criterion:'Income Verification',   req:'ITR matches', actual:'ITR = Declared ₹1.1L',  source:'ITR',            status:'PASS'},
+      {criterion:'KYC Address Match',     req:'Match',       actual:'Verified',               source:'KYC Docs',       status:'PASS'}
+    ],
+    chatChips:['What is the signature issue?','Is financial profile strong?','How to resolve this?','Can we approve financially?'],
+    chatWelcome:'Analysis complete for Case <strong>CASE-2024-08-1145</strong> (Meena Iyer). Found <strong>2 risk signals</strong> — 1 HIGH, 1 MEDIUM. Financially an excellent case, but document integrity flags on the loan application are serious and must be resolved first.'
+  },
+  {
+    id: 5, initials:'KR', name:'Karthik Rajan', age:38,
+    occupation:'Garment Trader', employmentType:'Self-Employed · 5 yrs',
+    loanAmount:'₹20,00,000', tenure:'60 months', emi:'~₹43,500', purpose:'Business working capital',
+    customerType:'Existing Customer (2 yrs)', received:'12:10 PM',
+    recommendation:'REJECT', overallRisk:'HIGH',
+    keyIssue:'FOIR 87% · 2 undisclosed loans · CIBIL 698',
+    cibil:698, cibilMin:700, cibilOk:false,
+    foir:'87%', foirNum:87, foirOk:false,
+    foirBreakdown:'Car loan ₹18,000 + Business loan ₹22,000 + Proposed ₹43,500 = ₹83,500 on ₹95,000 declared income',
+    foirWorst:'On ITR-verified income (₹72,000), FOIR = 116% — obligations exceed income entirely',
+    declaredIncome:'₹95,000/mo', itrIncome:'₹72,000/mo', bankCredits:'₹78,000/mo', existingEMI:'₹40,000/mo (2 active loans)',
+    docs:[
+      {name:'Aadhaar Card',         status:'ok'},
+      {name:'PAN Card',             status:'ok'},
+      {name:'Bank Statement (6m)',  status:'flag',   note:'3 cheque returns, irregular credits'},
+      {name:'CIBIL Report',         status:'fail',   note:'Score 698, 3 late payments'},
+      {name:'ITR FY 2022–23',       status:'flag',   note:'₹72k/mo vs declared ₹95k'},
+      {name:'Loan Application',     status:'ok'},
+      {name:'UW Policy v2.4',       status:'policy'}
+    ],
+    flags:[
+      {severity:'HIGH',   title:'CIBIL below minimum — deteriorating trend',       detail:'Score 698 — just 2 points below 700. 3 late payments in the last 12 months (Feb, Jul, Oct 2023). Importantly, the trend is worsening, not recovering.',                                      source:'CIBIL Report',    policy:'Policy v2.4 · Sec 3.1'},
+      {severity:'HIGH',   title:'FOIR at 87% — repayment is unsustainable',        detail:'Car loan (₹18k) + business loan (₹22k) + proposed EMI (₹43,500) = ₹83,500/mo obligations. On declared ₹95k FOIR = 87%. On ITR-verified ₹72k, FOIR = 116% — exceeds income.',                source:'CIBIL + App',     policy:'Policy v2.4 · Sec 4.3'},
+      {severity:'HIGH',   title:'Two active loans — partially undisclosed',         detail:'CIBIL shows both a car loan (2 yrs remaining) and a business loan (3 yrs remaining). Only the car loan was declared in the application. Undisclosed business loan outstanding ≈ ₹6,60,000.',  source:'CIBIL Report',    policy:'Policy v2.4 · Sec 2.5'},
+      {severity:'MEDIUM', title:'Income overstated by 32%',                         detail:'Declared ₹95,000/mo vs ITR-verified ₹72,000/mo — a 32% gap. Bank credits avg ₹78,000, closer to the ITR figure. No CA certificate provided.',                                               source:'ITR · Bank Stmt', policy:'Policy v2.4 · Sec 4.1'}
+    ],
+    positive: null,
+    summary:'Three simultaneous hard policy breaches (CIBIL, FOIR, undisclosed loans) with no compensating factors. On verified income, total debt obligations would exceed 100% of monthly income. Recommendation: Reject. If applicant disputes, Credit Committee review required.',
+    policyRows:[
+      {criterion:'Min. CIBIL Score',        req:'≥ 700',     actual:'698 — 2 below min',      source:'CIBIL Report',   status:'FAIL'},
+      {criterion:'FOIR',                    req:'≤ 50%',     actual:'87% (116% on ITR)',       source:'CIBIL + App',    status:'FAIL'},
+      {criterion:'Loan Disclosure',         req:'All declared', actual:'Business loan undisclosed', source:'CIBIL Report', status:'FAIL'},
+      {criterion:'Late Payments (12m)',     req:'0',         actual:'3 late payments',          source:'CIBIL Report',   status:'FAIL'},
+      {criterion:'Income Verification',     req:'Current ITR', actual:'32% gap, no CA cert',   source:'ITR FY22-23',    status:'CONCERN'},
+      {criterion:'Cheque Returns (6m)',     req:'0',         actual:'3 cheque returns',         source:'Bank Statement', status:'CONCERN'},
+      {criterion:'KYC Address Match',       req:'Match',     actual:'Verified',                 source:'KYC Docs',       status:'PASS'},
+      {criterion:'PAN / Aadhaar Linkage',   req:'Mandatory', actual:'Verified',                 source:'KYC Docs',       status:'PASS'}
+    ],
+    chatChips:['Why reject this case?','FOIR breakdown?','Any exception possible?','What are the hard breaches?'],
+    chatWelcome:'Analysis complete for Case <strong>CASE-2024-08-1146</strong> (Karthik Rajan). Found <strong>4 risk signals</strong> — 3 HIGH, 1 MEDIUM. Three simultaneous hard policy breaches with no compensating factors. Recommendation is rejection.'
+  }
+];
+
+// ══════════════════════════════════════════════════
+//  STYLE HELPERS
+// ══════════════════════════════════════════════════
+let currentCaseId = null;
+
+function riskSt(r){
+  if(r==='HIGH')   return {avatar:'bg-red-500',   badge:'bg-red-50   text-red-600   border border-red-100',   dot:'bg-red-400'};
+  if(r==='MEDIUM') return {avatar:'bg-amber-500', badge:'bg-amber-50 text-amber-700 border border-amber-100', dot:'bg-amber-400'};
+  return              {avatar:'bg-emerald-500', badge:'bg-emerald-50 text-emerald-700 border border-emerald-100', dot:'bg-emerald-400'};
+}
+function recSt(r){
+  if(r==='REJECT') return {banner:'#fef2f2', border:'#fecaca', text:'#b91c1c', short:'REJECT',  label:'Recommend Rejection', badgeCls:'bg-red-50 text-red-600 border border-red-100'};
+  if(r==='REFER')  return {banner:'#fffbeb', border:'#fde68a', text:'#b45309', short:'REFER',   label:'Refer — Document Issue', badgeCls:'bg-amber-50 text-amber-700 border border-amber-100'};
+  if(r==='APPROVE')return {banner:'#f0fdf4', border:'#bbf7d0', text:'#15803d', short:'APPROVE', label:'Recommend Approve', badgeCls:'bg-emerald-50 text-emerald-700 border border-emerald-100'};
+  return              {banner:'#fefce8', border:'#fef08a', text:'#854d0e', short:'REVIEW',  label:'Needs Manual Review', badgeCls:'bg-yellow-50 text-yellow-700 border border-yellow-100'};
+}
+function polBadgeCls(s){
+  if(s==='FAIL')    return 'bg-red-50 text-red-600 border border-red-100';
+  if(s==='CONCERN') return 'bg-amber-50 text-amber-700 border border-amber-100';
+  if(s==='PASS')    return 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+  return 'bg-blue-50 text-blue-600 border border-blue-100';
+}
+function polIcon(s){
+  if(s==='FAIL')    return '<span>✕</span> FAIL';
+  if(s==='CONCERN') return '<span>⚠</span> CONCERN';
+  if(s==='PASS')    return '<span>✓</span> PASS';
+  return '<span>ℹ</span> INFO';
+}
+function docStCls(s){
+  if(s==='ok')     return 'bg-emerald-50 text-emerald-600';
+  if(s==='flag')   return 'bg-amber-50   text-amber-600';
+  if(s==='fail')   return 'bg-red-50     text-red-600';
+  return 'bg-indigo-50 text-indigo-600';
+}
+function docIco(s){
+  if(s==='ok')   return `<svg width="9" height="9" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`;
+  if(s==='flag') return `<svg width="9" height="9" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>`;
+  if(s==='fail') return `<svg width="9" height="9" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  return `<svg width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>`;
+}
+
+// ══════════════════════════════════════════════════
+//  DASHBOARD
+// ══════════════════════════════════════════════════
+function renderDashboard(){
+  const total=cases.length, high=cases.filter(c=>c.overallRisk==='HIGH').length,
+        review=cases.filter(c=>c.recommendation==='REVIEW').length,
+        refer=cases.filter(c=>c.recommendation==='REFER').length,
+        reject=cases.filter(c=>c.recommendation==='REJECT').length;
+
+  const stats=[
+    {v:total, l:'Total in Queue',    icon:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', numCls:'text-gray-900',  icoCls:'text-gray-400'},
+    {v:high,  l:'High Risk',         icon:'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z', numCls:'text-red-600', icoCls:'text-red-400'},
+    {v:review,l:'Needs Review',      icon:'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z', numCls:'text-amber-600', icoCls:'text-amber-400'},
+    {v:refer, l:'Refer — Doc Issue', icon:'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', numCls:'text-orange-600', icoCls:'text-orange-400'},
+    {v:reject,l:'Recommend Reject',  icon:'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636', numCls:'text-red-700', icoCls:'text-red-400'}
+  ];
+  document.getElementById('statsRow').innerHTML = stats.map(s=>`
+    <div class="stat-card fade-up">
+      <div class="flex items-start justify-between">
+        <div class="text-2xl font-bold tracking-tight ${s.numCls}">${s.v}</div>
+        <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:#f5f6fa">
+          <svg class="w-4 h-4 ${s.icoCls}" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="${s.icon}"/></svg>
+        </div>
+      </div>
+      <div class="text-xs text-gray-400 font-medium mt-2">${s.l}</div>
+    </div>`).join('');
+
+  document.getElementById('caseTable').innerHTML = cases.map((c,i)=>{
+    const rs=riskSt(c.overallRisk), rc=recSt(c.recommendation);
+    return `<div class="case-row grid gap-4 items-center px-6 py-4 ${i<cases.length-1?'border-b border-gray-50':''}" style="grid-template-columns:2.6fr 1.8fr .9fr .9fr 2fr .8fr 1fr .8fr" onclick="showDetail(${c.id})">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-xl ${rs.avatar} flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">${c.initials}</div>
+        <div class="min-w-0">
+          <div class="font-semibold text-gray-900 truncate text-sm">${c.name}</div>
+          <div class="text-[11px] text-gray-400 truncate mt-0.5">${c.age} yrs · ${c.employmentType}</div>
+          <div class="text-[10px] mt-0.5 ${c.customerType.startsWith('New')?'text-orange-500 font-medium':'text-gray-400'}">${c.customerType}</div>
+        </div>
+      </div>
+      <div>
+        <div class="font-semibold text-gray-900 text-sm">${c.loanAmount}</div>
+        <div class="text-[11px] text-gray-400 mt-0.5">${c.tenure} · ${c.emi}/mo</div>
+        <div class="text-[10px] text-gray-400 truncate mt-0.5">${c.purpose}</div>
+      </div>
+      <div class="text-center">
+        <div class="font-bold text-[15px] ${c.cibilOk?'text-emerald-600':'text-red-600'}">${c.cibil}</div>
+        <div class="text-[9px] mt-0.5 font-medium ${c.cibilOk?'text-emerald-500':'text-red-400'}">${c.cibilOk?'✓ Pass':'Below '+c.cibilMin}</div>
+      </div>
+      <div class="text-center">
+        <div class="font-bold text-[15px] ${c.foirOk?'text-emerald-600':'text-red-600'}">${c.foir}</div>
+        <div class="text-[9px] mt-0.5 font-medium ${c.foirOk?'text-emerald-500':'text-red-400'}">${c.foirOk?'✓ Pass':'Above 50%'}</div>
+      </div>
+      <div>
+        <div class="text-xs text-gray-600 leading-snug">${c.keyIssue}</div>
+        <div class="flex items-center gap-1.5 mt-1.5">
+          <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${rs.badge}">${c.overallRisk}</span>
+          <span class="text-[10px] text-gray-400">${c.flags.length} flags</span>
+        </div>
+      </div>
+      <div class="text-center">
+        <div class="flex items-center justify-center gap-1">
+          <div class="w-2 h-2 rounded-full ${rs.dot}"></div>
+          <span class="text-xs font-semibold text-gray-600">${c.overallRisk}</span>
+        </div>
+      </div>
+      <div class="text-center">
+        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full ${rc.badgeCls}">${rc.short}</span>
+      </div>
+      <div class="text-right">
+        <button class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 ml-auto transition-colors">
+          Review
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+//  DETAIL RENDERING
+// ══════════════════════════════════════════════════
+function renderSidebar(c){
+  const rs=riskSt(c.overallRisk);
+  document.getElementById('sidebarContent').innerHTML = `
+    <div class="p-4 border-b border-gray-100">
+      <div class="flex items-center gap-2.5 mb-4">
+        <div class="w-10 h-10 rounded-xl ${rs.avatar} flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm">${c.initials}</div>
+        <div>
+          <div class="font-semibold text-gray-900 text-sm leading-tight">${c.name}</div>
+          <div class="text-[11px] text-gray-400 mt-0.5">${c.age} yrs · ${c.employmentType.split('·')[0].trim()}</div>
+        </div>
+      </div>
+      <div class="space-y-2.5 text-xs">
+        ${[['Amount',`<span class="font-bold text-gray-900">${c.loanAmount}</span>`],['Tenure',c.tenure],['EMI',c.emi+'/mo'],['Purpose',c.purpose.split(' ').slice(0,3).join(' ')],['Customer',`<span class="${c.customerType.startsWith('New')?'text-orange-500 font-semibold':'text-gray-700'}">${c.customerType.startsWith('New')?'New Customer':'Existing'}</span>`]].map(([k,v])=>`
+        <div class="flex justify-between items-center">
+          <span class="text-gray-400">${k}</span>
+          <span class="text-gray-700 text-right ml-2 max-w-[120px] truncate">${v}</span>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div class="p-4">
+      <div class="flex justify-between items-center mb-3">
+        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Documents</span>
+        <span class="text-[10px] font-semibold ${c.docs.some(d=>d.status==='fail')?'text-red-500':'text-emerald-600'}">${c.docs.filter(d=>d.status!=='policy').length} files</span>
+      </div>
+      <div class="space-y-0.5">
+        ${c.docs.map(d=>`
+        <div class="doc-item flex items-center gap-2 py-1.5 px-2">
+          <div class="w-5 h-5 rounded-lg ${docStCls(d.status)} flex items-center justify-center flex-shrink-0">${docIco(d.status)}</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-[11px] font-medium text-gray-700 truncate">${d.name}</div>
+            ${d.note?`<div class="text-[10px] text-gray-400 truncate">${d.note}</div>`:''}
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function renderBanner(c){
+  const rc=recSt(c.recommendation);
+  const nH=c.flags.filter(f=>f.severity==='HIGH').length;
+  const nM=c.flags.filter(f=>f.severity==='MEDIUM').length;
+  const iconPaths = rc.short==='REJECT'
+    ? 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636'
+    : rc.short==='REFER'
+    ? 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z'
+    : 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z';
+
+  document.getElementById('recBanner').innerHTML = `
+    <div class="px-5 py-3.5 flex items-center justify-between rec-pulse" style="background:${rc.banner}; border-bottom:1px solid ${rc.border}">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style="background:${rc.text}20">
+          <svg width="16" height="16" fill="none" stroke="${rc.text}" stroke-width="2" viewBox="0 0 24 24"><path d="${iconPaths}"/></svg>
+        </div>
+        <div>
+          <div class="text-[10px] font-bold uppercase tracking-widest mb-0.5" style="color:${rc.text}; opacity:0.6">AI Recommendation</div>
+          <div class="font-bold text-base" style="color:${rc.text}">${rc.label}</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-5">
+        <div class="text-center">
+          <div class="text-xl font-bold text-red-500">${nH}</div>
+          <div class="text-[9px] font-bold text-red-400 uppercase tracking-wide">HIGH</div>
+        </div>
+        <div class="text-center">
+          <div class="text-xl font-bold text-amber-500">${nM}</div>
+          <div class="text-[9px] font-bold text-amber-400 uppercase tracking-wide">MEDIUM</div>
+        </div>
+        <div class="text-right text-[10px]" style="color:${rc.text}; opacity:0.5">
+          <div>14 Aug 2024</div>
+          <div>Decision-support only</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderOverviewTab(c){
+  document.getElementById('tab-overview').innerHTML = `
+    <div class="bg-white rounded-2xl border border-gray-100 p-4 fade-up" style="box-shadow:0 1px 4px rgba(0,0,0,.04)">
+      <div class="flex items-center gap-2 mb-2.5">
+        <div class="w-5 h-5 rounded-lg flex items-center justify-center" style="background:#eef2ff">
+          <svg class="w-3 h-3 text-indigo-500" fill="none" stroke="#6366f1" stroke-width="2" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+        </div>
+        <span class="text-xs font-semibold text-gray-700">AI Justification</span>
+      </div>
+      <p class="text-xs text-gray-500 leading-relaxed">${c.summary}</p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="bg-white rounded-2xl border border-gray-100 p-4 fade-up" style="box-shadow:0 1px 4px rgba(0,0,0,.04)">
+        <div class="flex items-center gap-2 mb-3">
+          <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          <span class="text-xs font-semibold text-gray-700">Applicant Summary</span>
+        </div>
+        <div class="space-y-1 text-xs">
+          ${[['Name',c.name],['Age / Employment',`${c.age} yrs · ${c.employmentType}`],['Declared Income',`<span class="font-semibold text-amber-600">${c.declaredIncome}</span>`],['ITR Income',`<span class="font-semibold text-gray-700">${c.itrIncome}</span>`],['Bank Credits (avg)',c.bankCredits],['Existing EMI',c.existingEMI],['Proposed EMI',c.emi+'/mo'],['Customer Type',c.customerType]].map(([k,v])=>`
+          <div class="flex justify-between items-center py-1.5" style="border-bottom:1px solid #f9f9f9">
+            <span class="text-gray-400">${k}</span>
+            <span class="text-gray-700 text-right ml-3">${v}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <!-- FOIR -->
+        <div class="bg-white rounded-2xl border border-gray-100 p-4 fade-up" style="box-shadow:0 1px 4px rgba(0,0,0,.04)">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-gray-700">FOIR</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${c.foirOk?'bg-emerald-50 text-emerald-600':'bg-red-50 text-red-600'}">${c.foir} ${c.foirOk?'✓':'↑ breached'}</span>
+          </div>
+          <div class="text-[10px] text-gray-400 mb-2">Policy max: <strong class="text-gray-600">50%</strong></div>
+          <div class="relative mb-1">
+            <div class="h-2 bg-gray-100 rounded-full overflow-hidden relative">
+              <div id="foirGreen" class="absolute left-0 top-0 h-full foir-bar rounded-full" style="background:#10b981;width:0%"></div>
+              <div id="foirRed"   class="absolute top-0 h-full foir-bar" style="background:#ef4444;left:50%;width:0%;border-radius:0 4px 4px 0"></div>
+            </div>
+            <div class="absolute top-0 h-2 w-px bg-white" style="left:50%"></div>
+          </div>
+          <div class="flex justify-between text-[9px] text-gray-400 mt-1.5 mb-2">
+            <span>0%</span><span class="text-emerald-500 font-semibold">50% limit</span><span>100%</span>
+          </div>
+          <div class="text-[10px] text-gray-500 leading-relaxed">${c.foirBreakdown}</div>
+          ${!c.foirOk?`<div class="mt-2 text-[10px] text-red-500 bg-red-50 rounded-lg px-2.5 py-1.5">${c.foirWorst}</div>`:''}
+        </div>
+
+        <!-- CIBIL -->
+        <div class="bg-white rounded-2xl border border-gray-100 p-4 fade-up" style="box-shadow:0 1px 4px rgba(0,0,0,.04)">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-gray-700">CIBIL Score</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${c.cibilOk?'bg-emerald-50 text-emerald-600':'bg-red-50 text-red-600'}">${c.cibilOk?'✓ Above min':'Below 700'}</span>
+          </div>
+          <div class="relative mb-1">
+            <div class="h-2 rounded-full overflow-hidden" style="background:linear-gradient(to right,#f87171 0%,#fbbf24 40%,#34d399 75%,#10b981 100%)"></div>
+            <div class="absolute h-4 w-0.5 bg-gray-700 rounded-full -mt-1 shadow-sm" style="left:calc(${Math.min(100,Math.max(0,(c.cibil-300)/6))}% - 1px); top:0"></div>
+            <div class="absolute h-4 border-l border-dashed border-gray-300 -mt-1" style="left:${(700-300)/6}%; top:0"></div>
+          </div>
+          <div class="flex justify-between text-[9px] text-gray-400 mt-2 mb-2">
+            <span>300</span>
+            <span class="${c.cibilOk?'text-emerald-500':'text-amber-500'} font-semibold">700 min</span>
+            <span>900</span>
+          </div>
+          <div class="flex items-end justify-between">
+            <div>
+              <span class="text-2xl font-bold tracking-tight ${c.cibilOk?'text-emerald-600':'text-red-600'}">${c.cibil}</span>
+              <span class="text-xs text-gray-400 ml-1">/ 900</span>
+            </div>
+            <div class="text-right text-xs">
+              ${c.cibilOk
+                ?`<span class="text-emerald-600 font-semibold text-[11px]">Above minimum ✓</span>`
+                :`<div class="text-red-500 font-semibold text-[11px]">${700-c.cibil} pts below min</div><div class="text-gray-400 text-[10px]">Senior sign-off required</div>`}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${c.positive
+      ?`<div class="flex items-start gap-3 rounded-2xl p-3.5 fade-up glow-green" style="background:#f0fdf4;border:1px solid #dcfce7">
+          <div class="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style="background:#dcfce7">
+            <svg class="w-3 h-3" fill="none" stroke="#16a34a" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div><div class="text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-1">Positive Signal</div><div class="text-xs text-emerald-700">${c.positive}</div></div>
+        </div>`
+      :`<div class="flex items-start gap-3 rounded-2xl p-3.5 fade-up" style="background:#f9fafb;border:1px solid #f3f4f6">
+          <svg class="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div class="text-xs text-gray-400">No positive compensating factors identified in this case.</div>
+        </div>`}`;
+
+  setTimeout(()=>{
+    const gw=Math.min(c.foirNum,50), rw=Math.max(0,c.foirNum-50);
+    document.getElementById('foirGreen').style.width=gw+'%';
+    document.getElementById('foirRed').style.width=rw+'%';
+  },120);
+}
+
+function renderRisksTab(c){
+  document.getElementById('tab-risks').innerHTML = `
+    <div class="text-xs text-gray-400 mb-3 font-medium">${c.flags.length} risk signals identified across credit, income, compliance and behavioural dimensions.</div>
+    ${c.flags.map(f=>`
+    <div class="risk-card bg-white rounded-2xl overflow-hidden fade-up" style="border:1px solid ${f.severity==='HIGH'?'#fecaca':'#fde68a'}; box-shadow:0 1px 4px rgba(0,0,0,.04)">
+      <div class="flex">
+        <div class="w-1 flex-shrink-0 rounded-l-2xl" style="background:${f.severity==='HIGH'?'#ef4444':'#f59e0b'}"></div>
+        <div class="flex-1 p-4">
+          <div class="flex items-start justify-between gap-3 mb-2.5">
+            <div class="flex items-center gap-2.5">
+              <span class="text-[10px] font-bold text-white px-2 py-0.5 rounded-full" style="background:${f.severity==='HIGH'?'#ef4444':'#f59e0b'}">${f.severity}</span>
+              <span class="font-semibold text-gray-900 text-xs">${f.title}</span>
+            </div>
+            <span class="source-pill flex-shrink-0">${f.source}</span>
+          </div>
+          <p class="text-xs text-gray-500 leading-relaxed mb-3">${f.detail}</p>
+          <span class="policy-pill">${f.policy}</span>
+        </div>
+      </div>
+    </div>`).join('')}`;
+}
+
+function renderPolicyTab(c){
+  document.getElementById('tab-policy').innerHTML = `
+    <div class="bg-white rounded-2xl overflow-hidden fade-up" style="border:1px solid #e5e7eb; box-shadow:0 1px 4px rgba(0,0,0,.04)">
+      <div class="p-4 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-900 text-sm">Policy Compliance</h3>
+        <p class="text-xs text-gray-400 mt-0.5">Internal UW Policy v2.4 · Evaluated against uploaded documents · Last updated 01 Apr 2024</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead style="background:#fafafa; border-bottom:1px solid #f0f0f0">
+            <tr>
+              <th class="text-left px-4 py-2.5 text-gray-400 font-semibold text-[10px] uppercase tracking-wide w-44">Criterion</th>
+              <th class="text-left px-4 py-2.5 text-gray-400 font-semibold text-[10px] uppercase tracking-wide w-28">Requirement</th>
+              <th class="text-left px-4 py-2.5 text-gray-400 font-semibold text-[10px] uppercase tracking-wide">Actual Value</th>
+              <th class="text-left px-4 py-2.5 text-gray-400 font-semibold text-[10px] uppercase tracking-wide w-28">Source</th>
+              <th class="text-left px-4 py-2.5 text-gray-400 font-semibold text-[10px] uppercase tracking-wide w-24">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${c.policyRows.map((r,i)=>`
+            <tr style="${i%2===0?'':'background:#fafafa'}; border-bottom:1px solid #f5f5f5">
+              <td class="px-4 py-3 font-medium text-gray-700">${r.criterion}</td>
+              <td class="px-4 py-3 text-gray-400">${r.req}</td>
+              <td class="px-4 py-3 font-medium ${r.status==='FAIL'?'text-red-600':r.status==='CONCERN'?'text-amber-600':r.status==='PASS'?'text-emerald-600':'text-blue-600'}">${r.actual}</td>
+              <td class="px-4 py-3 text-gray-400">${r.source}</td>
+              <td class="px-4 py-3"><span class="text-[9px] font-bold px-2 py-1 rounded-full ${polBadgeCls(r.status)}">${polIcon(r.status)}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="px-4 py-3 flex gap-5 text-[10px]" style="background:#fafafa; border-top:1px solid #f0f0f0">
+        <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-red-300"></div><span class="text-gray-500">${c.policyRows.filter(r=>r.status==='FAIL').length} Hard Fails</span></div>
+        <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-amber-300"></div><span class="text-gray-500">${c.policyRows.filter(r=>r.status==='CONCERN').length} Concerns</span></div>
+        <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-emerald-300"></div><span class="text-gray-500">${c.policyRows.filter(r=>r.status==='PASS').length} Pass</span></div>
+      </div>
+    </div>`;
+}
+
+function renderDecisionTab(c){
+  const rc=recSt(c.recommendation);
+  const btnBase = "font-semibold text-xs py-2.5 px-4 rounded-xl transition-all flex-1 text-center";
+  const btnReturn  = `<button onclick="decide('Return to Applicant')" class="${btnBase} text-white hover:opacity-90" style="background:linear-gradient(135deg,#f97316,#ea580c)">Return to Applicant</button>`;
+  const btnRefer   = `<button onclick="decide('Refer for Senior Review')" class="${btnBase} text-white hover:opacity-90" style="background:linear-gradient(135deg,#f59e0b,#d97706)">Refer for Senior Review</button>`;
+  const btnReject  = `<button onclick="decide('Reject')" class="${btnBase} text-white hover:opacity-90" style="background:linear-gradient(135deg,#ef4444,#dc2626)">Reject</button>`;
+  const btnApprove = `<button onclick="decide('Approve')" class="${btnBase} text-white hover:opacity-90" style="background:linear-gradient(135deg,#10b981,#059669)">✓ Approve</button>`;
+  const btns = `${btnReturn}${btnRefer}${btnReject}${btnApprove}`;
+
+  document.getElementById('tab-decision').innerHTML = `
+    <div class="rounded-2xl p-4 flex items-start gap-3 fade-up" style="background:${rc.banner};border:1px solid ${rc.border}">
+      <svg width="16" height="16" fill="none" stroke="${rc.text}" stroke-width="2" viewBox="0 0 24 24" class="flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="text-xs" style="color:${rc.text}"><strong>Decision Authority Reminder:</strong> CreditSight's recommendation is for guidance only. Final decision authority rests with you as the underwriter. All decisions are logged for audit.</div>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-100 p-4 fade-up" style="box-shadow:0 1px 4px rgba(0,0,0,.04)">
+      <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Underwriter Notes</div>
+      <textarea id="noteField" class="w-full text-xs border border-gray-100 rounded-xl p-3 h-24 resize-none focus:outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-50 placeholder-gray-300 transition-all bg-gray-50 mb-1.5" placeholder="Add your observations, checks performed, or rationale for the decision…"></textarea>
+      <button onclick="prefill()" class="text-[11px] text-indigo-500 hover:text-indigo-700 font-medium transition-colors flex items-center gap-1">
+        <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Use AI-generated note
+      </button>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-100 p-4 fade-up" style="box-shadow:0 1px 4px rgba(0,0,0,.04)">
+      <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Your Decision</div>
+      <div class="flex gap-2.5 flex-wrap">${btns}</div>
+      <div class="mt-2.5 text-[10px] text-gray-400">All decisions are timestamped and logged against your underwriter ID for audit trail.</div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════
+//  CHAT
+// ══════════════════════════════════════════════════
+function findResponse(msg){
+  const c=cases.find(x=>x.id===currentCaseId), lower=msg.toLowerCase();
+  if(/foir|obligation|emi ratio|income ratio/.test(lower)) return `For <strong>${c.name}</strong>, the FOIR is <strong>${c.foir}</strong> against the policy maximum of <strong>50%</strong> (UW Policy v2.4 · Sec 4.3).\n\n<strong>Breakdown:</strong> ${c.foirBreakdown}\n\n${c.foirWorst}`;
+  if(/cibil|credit score|bureau score|658|724|748|762|698/.test(lower)) return `${c.name}'s CIBIL score is <strong>${c.cibil}</strong>. ${c.cibilOk?`This is above the bank's minimum of ${c.cibilMin} — CIBIL is not a concern in this case.`:`This is <strong>below</strong> the bank's hard minimum of ${c.cibilMin} by ${c.cibilMin-c.cibil} points. Any exception requires senior underwriter sign-off per Policy v2.4 Sec 3.1.`}`;
+  if(/income|itr|tax return|declared|salary amount/.test(lower)) return `Income picture for <strong>${c.name}</strong>:\n\n• Declared: <strong>${c.declaredIncome}</strong>\n• ITR verified: <strong>${c.itrIncome}</strong>\n• Bank credits avg: <strong>${c.bankCredits}</strong>\n\n${c.declaredIncome!==c.itrIncome?'There is a discrepancy between declared and ITR-verified income that requires a CA certificate or supporting documentation.':'Declared and ITR income are consistent — no income verification concern.'}`;
+  if(/document|missing|request|needed|additional/.test(lower)){
+    const flagged=c.docs.filter(d=>d.status!=='ok'&&d.status!=='policy');
+    return flagged.length?`Documents with flags in this case:\n\n${flagged.map(d=>`• <strong>${d.name}</strong>${d.note?' — '+d.note:''}`).join('\n')}\n\nFor progression, a CA-certified income certificate and any missing supporting documentation should be requested.`:`All uploaded documents are in order. The concerns in this case are data-driven, not document availability.`;
+  }
+  if(/why.*approv|approv.*why|reason.*approv/.test(lower)&&c.id===2) return `${c.name}'s case satisfies all hard policy criteria:\n\n• <strong>CIBIL 724</strong> — above the 700 minimum ✓\n• <strong>FOIR 38%</strong> — well within the 50% limit ✓\n• <strong>Prior personal loan closed</strong> — verified via updated CIBIL ✓\n• <strong>Income verified</strong> — ITR matches declared ₹72,000/mo ✓\n• <strong>4-year banking relationship</strong> — consistent transaction history ✓\n\nThe only minor note is two historical salary delays (Jan, Mar 2024) which are non-material and not recurring.`;
+  if(/approve|approv|sanction|eligible|can it/.test(lower)) return c.policyRows.filter(r=>r.status==='FAIL').length>0?`This case <strong>cannot be approved at junior underwriter level</strong> due to ${c.policyRows.filter(r=>r.status==='FAIL').length} hard policy breach${c.policyRows.filter(r=>r.status==='FAIL').length!==1?'es':''}: ${c.policyRows.filter(r=>r.status==='FAIL').map(r=>r.criterion).join(', ')}. These require escalation to a senior underwriter per Policy v2.4 Sec 7.2.`:`Financially the case is strong with CIBIL ${c.cibil} and FOIR ${c.foir}. However, the non-financial concerns must be resolved before processing.`;
+  if(/exception|waiver|escalat|senior|committee/.test(lower)) return `Per <strong>Policy v2.4 · Sec 7.2</strong> (Exception Handling):\n\n• CIBIL 650–699 → Senior Underwriter sign-off\n• CIBIL < 650 → Credit Committee approval\n• FOIR breach → Senior review required\n\nFor exceptions to be granted, compensating factors such as strong collateral, long banking relationship, or CA-certified income must be present. ${c.positive?'Positive factor: '+c.positive:'No strong compensating factors are currently present in this case.'}`;
+  if(/positive|strength|good|favorable|compensat/.test(lower)) return c.positive?`<strong>Positive signal identified:</strong>\n\n${c.positive}\n\nThis can be cited as a compensating factor in an exception note if the case is escalated. However, it does not override the hard policy breaches.`:`No positive compensating factors have been identified in this case. All major credit, income, and compliance metrics are outside acceptable policy limits.`;
+  if(/reject|rejection|why reject/.test(lower)&&c.recommendation==='REJECT') return `${c.name}'s case is recommended for rejection due to three simultaneous hard policy breaches:\n\n1. <strong>CIBIL ${c.cibil}</strong> — below 700 minimum\n2. <strong>FOIR ${c.foir}</strong> — far above 50% limit; on verified income exceeds 100%\n3. <strong>Undisclosed active loans</strong> — material non-disclosure\n\nNo compensating factors are present. Even with an exception application, the debt-to-income ratio makes repayment unsustainable.`;
+  if(/signature|mismatch|document integrity|overwrite|dob/.test(lower)) return `The loan application form has two document integrity issues:\n\n1. <strong>Signature mismatch</strong> — the signature on the application does not match the Aadhaar card\n2. <strong>Uncountersigned correction</strong> — the DOB field has been overwritten with whitener but has not been counter-signed as required by Policy v2.4 Sec 2.1\n\nThese are potential fraud indicators. Resolution options: (a) fresh application, or (b) notarized declaration confirming the correct details.`;
+  if(/prior flag|what was|personal loan|prior loan|undisclosed/.test(lower)&&c.id===2) return `An earlier CIBIL pull had flagged a personal loan of <strong>₹3,50,000</strong>. An updated CIBIL report dated 13 Aug 2024 confirms this loan is now <strong>fully closed and settled</strong>.\n\nWith that EMI removed, FOIR recalculates to <strong>38%</strong> — well within the 50% policy limit. This was the key reason the case moved to an Approve recommendation.`;
+  if(/itr gap|gap year|fy22|missing itr|not filed/.test(lower)&&c.id===3) return `${c.name} has filed ITR for FY2021-22 and FY2023-24, but <strong>FY2022-23 is absent</strong>. A gap year in tax filing may indicate:\n\n• A year of business loss or reduced income\n• Dormancy or operational pause\n• Compliance non-adherence\n\nThe income for FY2022-23 is entirely unverifiable. An explanation letter and supporting records for that year should be requested before senior review.`;
+  if(/cash|aml|suspicious transaction/.test(lower)&&c.id===3) return `${c.name}'s bank statement shows approximately <strong>45% of monthly inflows as cash deposits</strong> (avg ₹41,000/mo). Per RBI AML guidelines and Policy Sec 6.2, a cash-heavy business profile requires:\n\n• Source of funds documentation\n• Enhanced due diligence report\n• Business justification for cash-heavy operations\n\nThis does not necessarily indicate fraud, but it must be substantiated before approval.`;
+  if(/salary.*irregular|irregular.*salary/.test(lower)&&c.id===2) return `${c.name}'s bank statement shows salary credited on time in only <strong>3 of 6 months</strong> reviewed. Delays of 7–12 days were observed in January, March, and May 2024. This may indicate employer payroll processing delays or employment instability.\n\nA recent salary certificate from HR or a letter from the employer should be requested to clarify.`;
+  return `I can help you analyze specific aspects of this case. Try asking about:\n• <strong>FOIR</strong> calculation and breakdown\n• <strong>CIBIL score</strong> and bureau findings\n• <strong>Income discrepancy</strong> (declared vs ITR)\n• <strong>Documents</strong> to request\n• <strong>Exception process</strong> for senior review\n• <strong>Positive signals</strong> or compensating factors`;
+}
+
+function initChat(c){
+  document.getElementById('chatMessages').innerHTML='';
+  addMsg(c.chatWelcome,'ai');
+  document.getElementById('quickChips').innerHTML=c.chatChips.map(q=>`<button onclick="quickAsk('${q}')" class="chip">${q}</button>`).join('');
+}
+
+function quickAsk(q){ document.getElementById('chatInput').value=q; sendChat(); }
+
+function sendChat(){
+  const input=document.getElementById('chatInput');
+  const msg=input.value.trim();
+  if(!msg) return;
+  addMsg(msg,'user'); input.value=''; showTyping();
+  setTimeout(()=>{ hideTyping(); addMsg(findResponse(msg),'ai'); }, 900+Math.random()*600);
+}
+
+function addMsg(text,role){
+  const c=document.getElementById('chatMessages');
+  const d=document.createElement('div');
+  if(role==='user'){
+    d.className='flex justify-end fade-in';
+    d.innerHTML=`<div class="text-white text-xs rounded-2xl rounded-tr-sm px-3 py-2.5 max-w-[88%] leading-relaxed" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">${text}</div>`;
+  } else {
+    d.className='flex gap-2 items-start fade-in';
+    d.innerHTML=`<div class="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff)"><svg width="10" height="10" fill="none" stroke="#6366f1" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="bg-white text-gray-600 text-xs rounded-2xl rounded-tl-sm px-3 py-2.5 max-w-[88%] leading-relaxed whitespace-pre-line" style="border:1px solid #f0f0f0; box-shadow:0 1px 3px rgba(0,0,0,.04)">${text}</div>`;
+  }
+  c.appendChild(d); c.scrollTop=c.scrollHeight;
+}
+
+let typingEl=null;
+function showTyping(){
+  const c=document.getElementById('chatMessages');
+  typingEl=document.createElement('div'); typingEl.id='typingEl'; typingEl.className='flex gap-2 items-start fade-in';
+  typingEl.innerHTML=`<div class="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff)"><svg width="10" height="10" fill="none" stroke="#6366f1" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="bg-white rounded-2xl rounded-tl-sm px-3 py-3 flex gap-1 items-center" style="border:1px solid #f0f0f0"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  c.appendChild(typingEl); c.scrollTop=c.scrollHeight;
+}
+function hideTyping(){ const el=document.getElementById('typingEl'); if(el) el.remove(); }
+
+// ══════════════════════════════════════════════════
+//  TAB SWITCHING
+// ══════════════════════════════════════════════════
+let activeTab='overview';
+function switchTab(tab){
+  ['overview','risks','policy','decision'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('hidden', t!==tab);
+    document.getElementById('tabBtn-'+t).classList.toggle('active', t===tab);
+  });
+  activeTab=tab;
+}
+
+// ══════════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════════
+function showDetail(id){
+  currentCaseId=id;
+  const c=cases.find(x=>x.id===id);
+  document.getElementById('screen-dashboard').classList.add('hidden');
+  const sd=document.getElementById('screen-detail');
+  sd.classList.remove('hidden');
+
+  const rc=recSt(c.recommendation);
+  document.getElementById('subHeader').innerHTML=`
+    <span class="font-semibold text-gray-800 text-sm">${c.name}</span>
+    <span class="text-gray-300 text-xs">·</span>
+    <span class="text-gray-500 text-xs">${c.loanAmount}</span>
+    <span class="text-gray-300 text-xs">·</span>
+    <span class="text-gray-500 text-xs">${c.tenure}</span>
+    <span class="ml-1 text-[10px] font-bold px-2.5 py-1 rounded-full ${rc.badgeCls}">${rc.short}</span>`;
+
+  const ov=document.getElementById('loadingOverlay');
+  ov.classList.remove('hidden'); ov.classList.add('flex');
+  document.getElementById('detailBody').classList.add('hidden');
+  document.getElementById('loadingStep').textContent='Cross-referencing documents against underwriting policy…';
+  setTimeout(()=>{ document.getElementById('loadingStep').textContent=`✓ ${c.docs.filter(d=>d.status!=='policy').length} documents verified · Computing FOIR & risk signals…`; },700);
+
+  setTimeout(()=>{
+    ov.classList.add('hidden'); ov.classList.remove('flex');
+    document.getElementById('detailBody').classList.remove('hidden');
+    switchTab('overview');
+    document.getElementById('riskBadge').textContent=c.flags.length;
+    renderSidebar(c); renderBanner(c); renderOverviewTab(c);
+    renderRisksTab(c); renderPolicyTab(c); renderDecisionTab(c);
+    initChat(c); sd.scrollTop=0;
+  },1600);
+}
+
+function showDashboard(){
+  document.getElementById('screen-detail').classList.add('hidden');
+  document.getElementById('screen-dashboard').classList.remove('hidden');
+}
+
+function decide(action){
+  showToast('Decision recorded: '+action);
+}
+
+function prefill(){
+  const c=cases.find(x=>x.id===currentCaseId);
+  document.getElementById('noteField').value=`AI-generated note: ${c.flags.filter(f=>f.severity==='HIGH').length} HIGH risk signal${c.flags.filter(f=>f.severity==='HIGH').length!==1?'s':''}: ${c.flags.filter(f=>f.severity==='HIGH').map(f=>f.title).join('; ')}. ${c.summary} Additional documentation required before escalation.`;
+  showToast('AI-generated note added');
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.classList.remove('hidden'); t.classList.add('flex');
+  setTimeout(()=>{ t.classList.add('hidden'); t.classList.remove('flex'); },3200);
+}
+
+renderDashboard();
+</script>
+</body>
+</html>
